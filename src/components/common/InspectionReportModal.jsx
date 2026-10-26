@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import {
   X,
   Printer,
@@ -8,18 +7,12 @@ import {
   Check,
   Stamp,
   Download,
-  Loader2,
 } from 'lucide-react';
 import { StatusBadge } from './Badge';
 import { formatInspectionFields } from '../../utils/inspectionFormatter';
-import { AiInsightsCard } from './AiInsightsCard';
-import { generateInspectionPdf } from '../../services/pdfReportGenerator';
-import { useAuth } from '../../context/AuthContext';
+import { downloadInspectionPdf } from '../../utils/reportGenerator';
 
 export const InspectionReportModal = ({ isOpen, onClose, inspection, onViewEvidence }) => {
-  const { user } = useAuth();
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-
   if (!isOpen || !inspection) return null;
 
   const d = inspection.details || {};
@@ -28,21 +21,6 @@ export const InspectionReportModal = ({ isOpen, onClose, inspection, onViewEvide
 
   const handlePrint = () => {
     window.print();
-  };
-
-  const handleDownloadPdf = async () => {
-    try {
-      setIsGeneratingPdf(true);
-      const doc = await generateInspectionPdf(inspection, user);
-      const rawId = inspection.id || 'INSPECTION';
-      const cleanId = rawId.replace(/^SCAN-/, '');
-      doc.save(`LegalMetriScan_Report_LM-${cleanId}.pdf`);
-    } catch (err) {
-      console.error('PDF generation error:', err);
-      alert('Unable to generate PDF report: ' + err.message);
-    } finally {
-      setIsGeneratingPdf(false);
-    }
   };
 
   const displayStatus = inspection.status || (formatted.allDetected ? 'Compliant' : 'Attention Required');
@@ -66,21 +44,17 @@ export const InspectionReportModal = ({ isOpen, onClose, inspection, onViewEvide
 
           <div className="flex items-center gap-2">
             <button
-              onClick={handleDownloadPdf}
-              disabled={isGeneratingPdf}
-              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[#0B1B2B] hover:bg-[#18324F] text-white shadow-xs transition-colors flex items-center gap-1.5 active:scale-95 disabled:opacity-75"
+              onClick={() => downloadInspectionPdf(inspection)}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
+              title="Download official PDF report for this item"
             >
-              {isGeneratingPdf ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Download className="w-3.5 h-3.5 text-blue-400" />
-              )}
-              <span>{isGeneratingPdf ? 'Generating PDF...' : 'Download Official PDF'}</span>
+              <Download className="w-3.5 h-3.5" />
+              <span>Download PDF</span>
             </button>
 
             <button
               onClick={handlePrint}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 transition-colors flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5 text-slate-500" />
               <span>Print</span>
@@ -104,14 +78,8 @@ export const InspectionReportModal = ({ isOpen, onClose, inspection, onViewEvide
                 <Stamp className="w-6 h-6 stroke-[2]" />
               </div>
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 flex items-center gap-1.5">
-                  {inspection.recognitionMode === 'DEMO_REFERENCE' ? (
-                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                      Verified Package Profile
-                    </span>
-                  ) : (
-                    'Legal Metrology Verification'
-                  )}
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600">
+                  Legal Metrology Verification
                 </span>
                 <h3 className="text-base font-bold text-[#0B1B2B]">
                   {typeof inspection.productName === 'object' && inspection.productName !== null
@@ -159,9 +127,6 @@ export const InspectionReportModal = ({ isOpen, onClose, inspection, onViewEvide
               </div>
             </div>
           )}
-
-          {/* AI Inspection Insights Card */}
-          <AiInsightsCard scanData={inspection} />
 
           {/* Mandatory Declarations Table (Exact 8 Fields) */}
           <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden">

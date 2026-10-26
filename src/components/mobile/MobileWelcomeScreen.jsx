@@ -1,32 +1,16 @@
 import React from 'react';
-import { Package, ShieldCheck, User, LogOut } from 'lucide-react';
+import { Package, ShieldCheck } from 'lucide-react';
 import { Logo } from '../common/Logo';
 import { useInspection } from '../../context/InspectionContext';
-import { useAuth } from '../../context/AuthContext';
 
 export const MobileWelcomeScreen = ({ onGetStarted }) => {
   const { connectedDevice } = useInspection();
-  const { user, logout } = useAuth();
   const isConnected = connectedDevice?.status === 'Connected';
   return (
     <div className="flex-1 flex flex-col justify-between p-6 bg-white select-none">
-      {/* Top Header Logo & Officer Status */}
-      <div className="flex items-center justify-between pt-2">
-        <Logo variant="light" size="sm" showSubtitle={false} />
-        {user && (
-          <div className="flex items-center gap-2 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200">
-            <span className="text-[10px] font-bold text-slate-700 truncate max-w-[120px]">
-              {user.name.split(' ')[0]}
-            </span>
-            <button
-              onClick={logout}
-              title="Sign Out"
-              className="text-slate-400 hover:text-rose-600 transition-colors"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
+      {/* Top Header Logo */}
+      <div className="flex flex-col items-center pt-8 text-center">
+        <Logo variant="light" size="md" />
       </div>
 
       {/* Center 3D Package Illustration */}

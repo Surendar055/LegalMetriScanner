@@ -5,15 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "dev:java": "mvnw.cmd spring-boot:run -f backend-java/pom.xml",
+    "package:java": "mvnw.cmd clean package -DskipTests -f backend-java/pom.xml",
     "start:backend": "node backend/server.js",
+    "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "autoprefixer": "^10.6.1",
-    "jspdf": "^4.2.1",
     "lucide-react": "^1.48.0",
     "postcss": "^8.5.28",
     "qrcode": "^1.5.4",

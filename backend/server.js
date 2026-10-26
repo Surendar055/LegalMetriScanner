@@ -7,11 +7,16 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const { authRouter, verifyToken } = require('./auth');
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use('/api/auth', authRouter);
+
+try {
+  const { authRouter } = require('./auth');
+  if (authRouter) app.use('/api/auth', authRouter);
+} catch (e) {
+  // Optional auth fallback
+}
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -51,8 +56,7 @@ const sessions = new Map();
 app.get('/api/session/new', (req, res) => {
   const localIp = getLocalNetworkIp();
   const sessionId = 'LMS-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-  const baseUrl = process.env.PUBLIC_FRONTEND_URL || (req.get('origin') || `https://${localIp}:${VITE_PORT}`);
-  const mobileUrl = `${baseUrl.replace(/\/+$/, '')}/?sessionId=${sessionId}&mode=mobile`;
+  const mobileUrl = `https://${localIp}:${VITE_PORT}/?sessionId=${sessionId}&mode=mobile`;
 
   res.json({
     sessionId,
@@ -973,49 +977,8 @@ app.post('/api/ocr/analyze', async (req, res) => {
   }
 });
 
-io.use((socket, next) => {
-  const token = socket.handshake.auth?.token;
-  if (token) {
-    const decoded = verifyToken(token);
-    if (decoded) {
-      socket.user = decoded;
-      socket.userId = decoded.id;
-    }
-  }
-  next();
-});
-
 io.on('connection', (socket) => {
-  console.log(`[Socket] New connection: ${socket.id} (User: ${socket.userId || 'unauthenticated'})`);
-
-  // Auto-join authenticated user's private channel if token was provided in handshake
-  if (socket.userId) {
-    socket.join(`user:${socket.userId}`);
-    console.log(`[Socket] Joined user room: user:${socket.userId}`);
-  }
-
-  // Handle client runtime authentication / identity declaration
-  socket.on('auth:identify', ({ token, user }) => {
-    if (token) {
-      const decoded = verifyToken(token);
-      if (decoded) {
-        socket.user = decoded;
-        socket.userId = decoded.id;
-        socket.join(`user:${decoded.id}`);
-        console.log(`[Socket] Identified user ${decoded.name} (${decoded.id}) -> joined user:${decoded.id}`);
-
-        // Announce device connection to any stations under this user's account
-        io.to(`user:${decoded.id}`).emit('device:connected', {
-          sessionId: 'AUTH-USER-' + decoded.id,
-          device: {
-            name: `${decoded.name} (Mobile Field Unit)`,
-            model: 'Authenticated Mobile Scanner',
-          },
-          connectedAt: new Date().toLocaleTimeString(),
-        });
-      }
-    }
-  });
+  console.log(`[Socket] New connection: ${socket.id}`);
 
   // 1. Laptop station registers/starts session
   socket.on('session:init', ({ sessionId }) => {
@@ -1080,8 +1043,7 @@ io.on('connection', (socket) => {
 
   // 3. Mobile submits a scan package
   socket.on('scan:submit', ({ sessionId, scanData }) => {
-    const userId = socket.userId || scanData?.userId;
-    console.log(`[Scan Submitted] Session: ${sessionId || 'none'}, User: ${userId || 'anonymous'}, Product: ${scanData?.productName}`);
+    console.log(`[Scan Submitted] Session: ${sessionId}, Product: ${scanData?.productName}`);
     try {
       const scratchDir = path.join(__dirname, '../scratch');
       if (!fs.existsSync(scratchDir)) fs.mkdirSync(scratchDir, { recursive: true });
@@ -1093,25 +1055,10 @@ io.on('connection', (socket) => {
     } catch (e) {
       console.warn('[Scan Submitted Save Error]:', e.message);
     }
-
-    // Broadcast scan to user-specific channel (for persistent authenticated pairing)
-    if (userId) {
-      io.to(`user:${userId}`).emit('scan:received', scanData);
-      io.to(`user:${userId}`).emit('device:connected', {
-        sessionId: sessionId || 'AUTH-USER-' + userId,
-        device: {
-          name: socket.user?.name ? `${socket.user.name} (Field Unit)` : 'Mobile Scanner Unit',
-          model: 'Authenticated Mobile Scanner',
-        },
-        connectedAt: new Date().toLocaleTimeString(),
-      });
-    }
-
-    // Broadcast scan to laptop station via session room if specified
+    // Broadcast scan to laptop station
     if (sessionId) {
       io.to(sessionId).emit('scan:received', scanData);
     }
-    // Global broadcast for station listeners
     io.emit('scan:received', scanData);
   });
 

@@ -4,6 +4,7 @@ import { DashboardHeader } from '../components/desktop/DashboardHeader';
 import { StatCard } from '../components/common/StatCard';
 import { ConnectScannerCard } from '../components/desktop/ConnectScannerCard';
 import { RecentInspectionsTable } from '../components/desktop/RecentInspectionsTable';
+import { ItemsSectionView } from '../components/desktop/ItemsSectionView';
 import { NewInspectionView } from '../components/desktop/NewInspectionView';
 import { ReportsView } from '../components/desktop/ReportsView';
 import { AnalyticsView } from '../components/desktop/AnalyticsView';
@@ -71,8 +72,8 @@ export const DesktopView = () => {
           {/* TAB 2: NEW INSPECTION (Connect Mobile Scanner full screen) */}
           {activeTab === 'new_inspection' && <NewInspectionView />}
 
-          {/* TAB 3: INSPECTIONS LIST */}
-          {activeTab === 'inspections' && <RecentInspectionsTable />}
+          {/* TAB 3: SCANNED ITEMS INVENTORY */}
+          {activeTab === 'inspections' && <ItemsSectionView />}
 
           {/* TAB 4: REPORTS */}
           {activeTab === 'reports' && <ReportsView />}

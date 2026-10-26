@@ -1,6 +1,7 @@
 import React from 'react';
 import { StatusBadge } from '../common/Badge';
 import { useInspection } from '../../context/InspectionContext';
+import { formatToShortDate } from '../../utils/reportGenerator';
 
 export const RecentInspectionsTable = () => {
   const { inspections, openInspectionReport, setActiveTab } = useInspection();
@@ -51,15 +52,16 @@ export const RecentInspectionsTable = () => {
                     : (item.productName || 'Scanned Package')}
                 </td>
 
-                {/* Date & Time */}
-                <td className="py-3.5 px-6 text-slate-500 font-medium">
-                  {item.displayDate || new Date(item.timestamp).toLocaleString('en-IN', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
+                {/* Date & Time (DD/MM/YY) */}
+                <td className="py-3.5 px-6 whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-xs text-blue-900 bg-blue-50/80 px-2 py-0.5 rounded border border-blue-200/60">
+                      {formatToShortDate(item.timestamp || item.displayDate)}
+                    </span>
+                    <span className="text-[11px] text-slate-400 font-mono">
+                      {item.timestamp ? new Date(item.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : ''}
+                    </span>
+                  </div>
                 </td>
 
                 {/* Status Badge & Verdict */}

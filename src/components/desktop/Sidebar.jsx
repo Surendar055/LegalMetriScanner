@@ -6,18 +6,19 @@ import {
   FileText,
   BarChart2,
   Settings,
-  ChevronRight
+  ChevronRight,
+  Package
 } from 'lucide-react';
 import { Logo } from '../common/Logo';
 import { useInspection } from '../../context/InspectionContext';
 
 export const Sidebar = () => {
-  const { activeTab, setActiveTab } = useInspection();
+  const { activeTab, setActiveTab, inspections } = useInspection();
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'new_inspection', label: 'New Inspection', icon: PlusCircle, hasArrow: true },
-    { id: 'inspections', label: 'Inspections', icon: FileSearch, hasArrow: true },
+    { id: 'inspections', label: 'Scanned Items', icon: Package, badge: inspections.length, hasArrow: true },
     { id: 'reports', label: 'Reports', icon: FileText },
     { id: 'analytics', label: 'Analytics', icon: BarChart2 },
     { id: 'settings', label: 'Settings', icon: Settings },
@@ -55,9 +56,18 @@ export const Sidebar = () => {
                 <span>{item.label}</span>
               </div>
 
-              {item.hasArrow && (
-                <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
-              )}
+              <div className="flex items-center gap-1.5">
+                {item.badge !== undefined && (
+                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold font-mono ${
+                    isActive ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    {item.badge}
+                  </span>
+                )}
+                {item.hasArrow && (
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+                )}
+              </div>
             </button>
           );
         })}

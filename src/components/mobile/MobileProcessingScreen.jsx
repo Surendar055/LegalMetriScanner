@@ -3,7 +3,6 @@ import { Logo } from '../common/Logo';
 import { useInspection } from '../../context/InspectionContext';
 import { runOcrOnImage } from '../../services/ocrService';
 import { formatInspectionFields } from '../../utils/inspectionFormatter';
-import { detectDemoPackage } from '../../services/demoRecognitionService';
 import { Sparkles, Scan, AlertCircle, WifiOff, RefreshCw, ArrowLeft } from 'lucide-react';
 
 export const MobileProcessingScreen = ({ currentScan, onFinishProcessing, onRetake }) => {
@@ -48,8 +47,8 @@ export const MobileProcessingScreen = ({ currentScan, onFinishProcessing, onReta
 
       setProgress(100);
 
-      // Controlled Demo Recognition Layer
-      const demoMatch = detectDemoPackage(ocrResult.rawText);
+      // Compute statutory formatting & verdict
+      const formatted = formatInspectionFields(ocrResult.extractedFields, ocrResult.rawText);
 
       // Extract string value safely from productName field
       const rawProductName = ocrResult.extractedFields?.productName;
@@ -59,21 +58,6 @@ export const MobileProcessingScreen = ({ currentScan, onFinishProcessing, onReta
       const safeProductName = (productNameStr && productNameStr !== 'Not detected')
         ? String(productNameStr).trim()
         : 'Scanned Commodity Package';
-
-      let effectiveDetails = ocrResult.extractedFields;
-      let effectiveProductName = safeProductName;
-      let recognitionMode = 'REAL_OCR';
-      let recognizedDemoPackage = null;
-
-      if (demoMatch) {
-        recognitionMode = 'DEMO_REFERENCE';
-        recognizedDemoPackage = demoMatch.id;
-        effectiveProductName = demoMatch.productName;
-        effectiveDetails = demoMatch.referenceDetails;
-      }
-
-      // Compute statutory formatting & verdict
-      const formatted = formatInspectionFields(effectiveDetails, ocrResult.rawText);
 
       // Build verified scan structure
       const analyzedScan = {
@@ -86,7 +70,7 @@ export const MobileProcessingScreen = ({ currentScan, onFinishProcessing, onReta
           hour: '2-digit',
           minute: '2-digit',
         }),
-        productName: effectiveProductName,
+        productName: safeProductName,
         evidenceImageUrl: evidenceImg,
         ocrRawText: ocrResult.rawText || '',
         ocrConfidence: ocrResult.ocrConfidence || 0,
@@ -94,13 +78,11 @@ export const MobileProcessingScreen = ({ currentScan, onFinishProcessing, onReta
         processingTimeMs: ocrResult.processingTimeMs || 0,
         variantsTested: ocrResult.variantsTested || 1,
         psmMode: ocrResult.psmMode || '3 (Automatic)',
-        details: effectiveDetails,
+        details: ocrResult.extractedFields,
         verdict: formatted.verdict,
         status: formatted.allDetected ? 'Compliant' : 'Attention Required',
         mandatoryFields: formatted.fields,
         missingFields: formatted.missingFields,
-        recognitionMode,
-        recognizedDemoPackage,
       };
 
       // Save to context & broadcast to laptop station

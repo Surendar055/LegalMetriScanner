@@ -5,9 +5,9 @@
 export const INITIAL_INSPECTIONS = [
   {
     id: "1",
-    productName: "Premium Rice (1kg)",
-    timestamp: "2025-09-27T10:24:00Z",
-    displayDate: "27 Sep 2025, 10:24 AM",
+    productName: "Premium Basmati Rice (1kg)",
+    timestamp: "2026-10-24T10:24:00Z",
+    displayDate: "24/10/26",
     status: "Compliant",
     score: 98,
     barcode: "8901030829141",
@@ -20,7 +20,8 @@ export const INITIAL_INSPECTIONS = [
       address: "Plot 12, Industrial Estate, Chennai, Tamil Nadu - 600001",
       customerCare: "+91 98765 43210",
       countryOfOrigin: "India",
-      mfgDate: "08/2025"
+      mfgDate: "08/2026",
+      fssaiNumber: "10014022002789"
     },
     verifications: [
       { field: "MRP", value: "₹120", found: true },
@@ -33,9 +34,67 @@ export const INITIAL_INSPECTIONS = [
   },
   {
     id: "2",
-    productName: "Wheat Flour (5kg)",
-    timestamp: "2025-09-27T09:16:00Z",
-    displayDate: "27 Sep 2025, 09:16 AM",
+    productName: "Marie Gold Biscuit (250g)",
+    timestamp: "2026-10-24T11:45:00Z",
+    displayDate: "24/10/26",
+    status: "Compliant",
+    score: 95,
+    barcode: "8901063142211",
+    category: "Bakery & Biscuits",
+    details: {
+      mrp: "₹35",
+      mrpRaw: "₹35.00 (Incl. of all taxes)",
+      netQuantity: "250 g",
+      manufacturer: "Britannia Industries Ltd.",
+      address: "5/1A Hungerford Street, Kolkata - 700017",
+      customerCare: "1800-425-4449",
+      countryOfOrigin: "India",
+      mfgDate: "09/2026",
+      fssaiNumber: "10015043001129"
+    },
+    verifications: [
+      { field: "MRP", value: "₹35", found: true },
+      { field: "Net Quantity", value: "250 g", found: true },
+      { field: "Manufacturer", value: "Britannia Industries Ltd.", found: true },
+      { field: "Address", value: "Kolkata, West Bengal", found: true },
+      { field: "Customer Care", value: "1800-425-4449", found: true }
+    ],
+    evidenceImageUrl: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=800&q=80"
+  },
+  {
+    id: "3",
+    productName: "Choco Chip Cookies Biscuit (200g)",
+    timestamp: "2026-10-25T14:30:00Z",
+    displayDate: "25/10/26",
+    status: "Non-Compliant",
+    score: 42,
+    barcode: "8904001289451",
+    category: "Bakery & Biscuits",
+    details: {
+      mrp: "₹40",
+      mrpRaw: "MRP 40 (Dual stickered)",
+      netQuantity: "200 g",
+      manufacturer: "BakeWell Confectioners",
+      address: "Incomplete Address",
+      customerCare: "Not Found",
+      countryOfOrigin: "India",
+      mfgDate: "06/2026",
+      fssaiNumber: "10017042003310"
+    },
+    verifications: [
+      { field: "MRP", value: "₹40", found: false, note: "Dual pricing detected" },
+      { field: "Net Quantity", value: "200 g", found: true },
+      { field: "Manufacturer", value: "BakeWell Confectioners", found: true },
+      { field: "Address", value: "Not Declared", found: false },
+      { field: "Customer Care", value: "Not Found", found: false }
+    ],
+    evidenceImageUrl: "https://images.unsplash.com/photo-1499636136210-6f4ee915583e?auto=format&fit=crop&w=800&q=80"
+  },
+  {
+    id: "4",
+    productName: "Wheat Flour Atta (5kg)",
+    timestamp: "2026-10-25T16:15:00Z",
+    displayDate: "25/10/26",
     status: "Attention Required",
     score: 72,
     barcode: "8902011993420",
@@ -48,7 +107,8 @@ export const INITIAL_INSPECTIONS = [
       address: "Chennai, Tamil Nadu",
       customerCare: "+91 98765 43210",
       countryOfOrigin: "India",
-      mfgDate: "07/2025"
+      mfgDate: "07/2026",
+      fssaiNumber: "10016021002245"
     },
     verifications: [
       { field: "MRP", value: "₹240", found: true },
@@ -60,38 +120,10 @@ export const INITIAL_INSPECTIONS = [
     evidenceImageUrl: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80"
   },
   {
-    id: "3",
-    productName: "Biscuits (200g)",
-    timestamp: "2025-09-26T17:42:00Z",
-    displayDate: "26 Sep 2025, 05:42 PM",
-    status: "Non-Compliant",
-    score: 42,
-    barcode: "8904001289451",
-    category: "Packaged Snack",
-    details: {
-      mrp: "₹40",
-      mrpRaw: "MRP 40 (Dual stickered)",
-      netQuantity: "200 g",
-      manufacturer: "BakeWell Confectioners",
-      address: "Incomplete Address",
-      customerCare: "Not Found",
-      countryOfOrigin: "India",
-      mfgDate: "06/2025"
-    },
-    verifications: [
-      { field: "MRP", value: "₹40", found: false, note: "Dual pricing detected" },
-      { field: "Net Quantity", value: "200 g", found: true },
-      { field: "Manufacturer", value: "BakeWell Confectioners", found: true },
-      { field: "Address", value: "Not Declared", found: false },
-      { field: "Customer Care", value: "Not Found", found: false }
-    ],
-    evidenceImageUrl: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    id: "4",
-    productName: "Cooking Oil (1L)",
-    timestamp: "2025-09-26T15:17:00Z",
-    displayDate: "26 Sep 2025, 03:17 PM",
+    id: "5",
+    productName: "Refined Sunflower Cooking Oil (1L)",
+    timestamp: "2026-10-26T09:20:00Z",
+    displayDate: "26/10/26",
     status: "Compliant",
     score: 96,
     barcode: "8901239847120",
@@ -104,7 +136,8 @@ export const INITIAL_INSPECTIONS = [
       address: "Phase 2, GIDC, Vadodara, Gujarat - 390010",
       customerCare: "1800-200-4321",
       countryOfOrigin: "India",
-      mfgDate: "09/2025"
+      mfgDate: "09/2026",
+      fssaiNumber: "10018011005520"
     },
     verifications: [
       { field: "MRP", value: "₹185", found: true },

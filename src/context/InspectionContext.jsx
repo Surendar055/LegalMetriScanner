@@ -3,13 +3,58 @@ import QRCode from 'qrcode';
 import { INITIAL_INSPECTIONS, CONNECTED_DEVICE_DEFAULT, MOCK_SCAN_TEMPLATES } from '../data/mockData';
 import socketService from '../services/socketService';
 import { formatInspectionFields } from '../utils/inspectionFormatter';
-import { generateAiInsights } from '../services/aiInsightsService';
-import { getApiUrl } from '../config/api.js';
+import { formatToShortDate } from '../utils/reportGenerator';
 
 const InspectionContext = createContext(null);
 
 export const InspectionProvider = ({ children }) => {
-  const [inspections, setInspections] = useState(INITIAL_INSPECTIONS);
+  const [inspections, setInspections] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('lms_scanned_items_inventory_v3');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to parse saved inspections from localStorage', e);
+      }
+    }
+    return INITIAL_INSPECTIONS;
+  });
+
+  // Sync to localStorage whenever inspections state changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('lms_scanned_items_inventory_v3', JSON.stringify(inspections));
+      } catch (e) {
+        console.warn('Failed to save inspections to localStorage', e);
+      }
+    }
+  }, [inspections]);
+
+  // Fetch initial inspections from backend on mount if available
+  useEffect(() => {
+    fetch('/api/inspections')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((backendItems) => {
+        if (Array.isArray(backendItems) && backendItems.length > 0) {
+          setInspections((prev) => {
+            const merged = [...backendItems];
+            for (const item of prev) {
+              if (!merged.some((m) => m.id === item.id)) {
+                merged.push(item);
+              }
+            }
+            return merged;
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
   const [connectedDevice, setConnectedDevice] = useState(CONNECTED_DEVICE_DEFAULT);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [currentInterface, setCurrentInterface] = useState('desktop');
@@ -52,7 +97,7 @@ export const InspectionProvider = ({ children }) => {
 
       if (!existingSessionId || forceNew) {
         try {
-          const res = await fetch(getApiUrl('/api/session/new'));
+          const res = await fetch('/api/session/new');
           if (res.ok) {
             const data = await res.json();
             newSessionId = data.sessionId;
@@ -66,7 +111,7 @@ export const InspectionProvider = ({ children }) => {
         }
       } else {
         try {
-          const res = await fetch(getApiUrl('/api/network-info'));
+          const res = await fetch('/api/network-info');
           if (res.ok) {
             const data = await res.json();
             if (data.localIp && data.localIp !== 'localhost') {
@@ -126,7 +171,6 @@ export const InspectionProvider = ({ children }) => {
     const sanitizedScan = {
       ...scanData,
       productName: safeProdName,
-      aiInsights: scanData.aiInsights || generateAiInsights(scanData),
     };
 
     setLiveScanState({
@@ -142,6 +186,17 @@ export const InspectionProvider = ({ children }) => {
       if (exists) return prev;
       return [sanitizedScan, ...prev];
     });
+
+    // Also persist to backend Java database
+    try {
+      fetch('/api/inspections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sanitizedScan),
+      }).catch((e) => console.warn('[InspectionContext] Backend save notice:', e));
+    } catch (e) {
+      // Ignored
+    }
   }, []);
 
   // Initialize Socket.IO connection and listen for pairing events
@@ -306,13 +361,7 @@ export const InspectionProvider = ({ children }) => {
     const newScan = {
       id: scanPayload.id || `SCAN-${inspections.length + 1}`,
       timestamp: scanPayload.timestamp || new Date().toISOString(),
-      displayDate: scanPayload.displayDate || new Date().toLocaleString('en-IN', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
+      displayDate: scanPayload.displayDate || formatToShortDate(scanPayload.timestamp || new Date()),
       productName: safeProdName,
       barcode: scanPayload.barcode || 'N/A',
       category: scanPayload.category || 'Packaged Commodity',
@@ -328,15 +377,6 @@ export const InspectionProvider = ({ children }) => {
       verifications,
       evidenceImageUrl: scanPayload.evidenceImageUrl || '',
       processingTimeMs: scanPayload.processingTimeMs || 0,
-      recognitionMode: scanPayload.recognitionMode || 'REAL_OCR',
-      recognizedDemoPackage: scanPayload.recognizedDemoPackage || null,
-      aiInsights: scanPayload.aiInsights || generateAiInsights({
-        ...scanPayload,
-        details,
-        recognitionMode: scanPayload.recognitionMode || 'REAL_OCR',
-        recognizedDemoPackage: scanPayload.recognizedDemoPackage || null,
-        ocrConfidence: scanPayload.ocrConfidence || 0,
-      }),
     };
 
     // Save directly to local inspections state

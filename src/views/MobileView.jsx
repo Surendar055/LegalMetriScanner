@@ -21,18 +21,11 @@ export const MobileView = ({
 
   const handleCapturePackage = (capturedScan) => {
     // Store original captured image as evidence and working image for OCR
-    // Explicitly reset all state to prevent any data leak from previous scans
     const payload = {
       evidenceImageUrl: capturedScan?.evidenceImageUrl || '',
       workingImageUrl: capturedScan?.workingImageUrl || capturedScan?.evidenceImageUrl || '',
       clientQualityDebug: capturedScan?.clientQualityDebug || null,
       isProcessing: true,
-      recognizedDemoPackage: null,
-      recognitionMode: null,
-      aiInsights: null,
-      details: null,
-      ocrRawText: '',
-      ocrConfidence: 0,
     };
 
     setCurrentScan(payload);

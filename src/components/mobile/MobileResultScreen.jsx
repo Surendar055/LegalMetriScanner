@@ -15,7 +15,6 @@ import {
 import { Logo } from '../common/Logo';
 import { useInspection } from '../../context/InspectionContext';
 import { formatInspectionFields } from '../../utils/inspectionFormatter';
-import { AiInsightsCard } from '../common/AiInsightsCard';
 
 export const MobileResultScreen = ({ currentScan, onViewEvidence, onScanAnother }) => {
   const { connectedDevice } = useInspection();
@@ -85,14 +84,8 @@ export const MobileResultScreen = ({ currentScan, onViewEvidence, onScanAnother 
         {/* Product Title & Detection Status Count */}
         <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1.5">
-              {currentScan?.recognitionMode === 'DEMO_REFERENCE' ? (
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                  Verified Commodity Profile
-                </span>
-              ) : (
-                'Statutory Inspection Result'
-              )}
+            <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">
+              Statutory Inspection Result
             </span>
             <span
               className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
@@ -142,9 +135,6 @@ export const MobileResultScreen = ({ currentScan, onViewEvidence, onScanAnother 
             </div>
           </div>
         )}
-
-        {/* AI Inspection Insights Card */}
-        <AiInsightsCard scanData={currentScan} />
 
         {/* Declarations Extraction Checklist Card */}
         <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs divide-y divide-slate-100 overflow-hidden">

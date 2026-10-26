@@ -1,5 +1,4 @@
 import { createWorker } from 'tesseract.js';
-import { getApiUrl } from '../config/api.js';
 
 import {
   extractDeclarationsFromText,
@@ -216,7 +215,7 @@ export async function runOcrOnImage(imageDataUrl, onProgress, options = {}) {
   try {
     onProgress?.({ stage: 'connecting', message: 'Connecting to multi-variant OCR engine...', progress: 15 });
     
-    const res = await fetch(getApiUrl('/api/ocr/analyze'), {
+    const res = await fetch('/api/ocr/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

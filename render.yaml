@@ -1,0 +1,25 @@
+services:
+  # 1. Java Spring Boot Backend Service on Render
+  - type: web
+    name: legalmetriscan-backend-java
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: SOCKET_PORT
+        value: 4001
+
+  # 2. React Vite Frontend Static Site on Render (if hosted together)
+  - type: web
+    name: legalmetriscan-frontend
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    plan: free
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

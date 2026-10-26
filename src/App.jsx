@@ -9,7 +9,7 @@ import { EvidenceViewerModal } from './components/common/EvidenceViewerModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 const MainApp = () => {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const {
     currentInterface,
     setCurrentInterface,
@@ -46,7 +46,13 @@ const MainApp = () => {
     );
   }
 
-  if (!isAuthenticated) {
+  // Allow direct access for mobile QR scanner links with sessionId
+  const isMobileScanSession =
+    typeof window !== 'undefined' &&
+    (window.location.search.includes('sessionId=') ||
+      window.location.search.includes('mode=mobile'));
+
+  if (!isAuthenticated && !isMobileScanSession) {
     return <AuthView />;
   }
 

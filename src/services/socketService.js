@@ -14,50 +14,28 @@ class SocketService {
     this.role = null; // 'laptop' | 'phone'
     this.deviceInfo = null;
     this.pendingScans = [];
-    this.token = typeof window !== 'undefined' ? localStorage.getItem('lms_auth_token') : null;
-    this.currentUser = null;
-  }
-
-  setAuthToken(token, user) {
-    this.token = token;
-    this.currentUser = user;
-    if (this.socket && this.socket.connected) {
-      this.socket.emit('auth:identify', { token, user });
-    }
   }
 
   getBackendUrl() {
     if (import.meta.env.VITE_SOCKET_URL) {
       return import.meta.env.VITE_SOCKET_URL;
     }
-    if (import.meta.env.VITE_BACKEND_URL) {
-      return import.meta.env.VITE_BACKEND_URL;
-    }
-    if (import.meta.env.VITE_API_URL) {
-      return import.meta.env.VITE_API_URL;
-    }
-    // If running over HTTPS in local dev, connect via same origin so Vite can proxy WebSocket securely
-    if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+    // In browser, route through Vite proxy / same origin so SSL & proxies work effortlessly
+    if (typeof window !== 'undefined') {
       return window.location.origin;
     }
     const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-    return `http://${host}:4000`;
+    return `http://${host}:4001`;
   }
 
   init(serverUrl = this.getBackendUrl()) {
     if (this.socket) {
-      if (this.token && this.socket.connected) {
-        this.socket.emit('auth:identify', { token: this.token, user: this.currentUser });
-      }
       return this.socket;
     }
 
     try {
       this.socket = io(serverUrl, {
         transports: ['websocket', 'polling'],
-        auth: {
-          token: this.token,
-        },
         reconnection: true,
         reconnectionAttempts: 50,
         reconnectionDelay: 500,
@@ -158,18 +136,14 @@ class SocketService {
 
   // Phone sends a scan to Laptop
   submitScan(sessionId, scanData) {
-    const payload = {
-      ...scanData,
-      userId: scanData?.userId || this.currentUser?.id || null,
-    };
     if (this.socket && this.socket.connected) {
-      this.socket.emit('scan:submit', { sessionId, scanData: payload });
+      this.socket.emit('scan:submit', { sessionId, scanData });
     } else {
       console.warn('[SocketService] Socket offline during scan submission. Queueing scan for delivery upon reconnect...');
-      this.pendingScans.push({ sessionId, scanData: payload });
+      this.pendingScans.push({ sessionId, scanData });
     }
     // Also trigger local event
-    this.emitInternal('scan:received', payload);
+    this.emitInternal('scan:received', scanData);
   }
 
   on(event, callback) {
