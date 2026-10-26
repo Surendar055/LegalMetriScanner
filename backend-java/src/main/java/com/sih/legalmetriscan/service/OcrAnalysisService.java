@@ -42,9 +42,17 @@ public class OcrAnalysisService {
         long startTime = System.currentTimeMillis();
         OcrAnalyzeResponse response = new OcrAnalyzeResponse();
 
+        String scanId = (request.getScanId() != null && !request.getScanId().isBlank())
+                ? request.getScanId()
+                : "SCAN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        response.setScanId(scanId);
+
+        long t0 = System.currentTimeMillis();
         BufferedImage baseImage = imageProcessingService.decodeBase64Image(request.getImage());
+        long decodeTime = System.currentTimeMillis() - t0;
         int width = baseImage != null ? baseImage.getWidth() : 1280;
         int height = baseImage != null ? baseImage.getHeight() : 720;
+        System.out.printf("[Backend-OCR][%s] Decoded image (%dx%d) in %dms%n", scanId, width, height, decodeTime);
 
         Map<String, Object> qualityMetrics = imageProcessingService.calculateImageQualityMetrics(baseImage);
         Map<String, Object> imageQualityDebug = new LinkedHashMap<>();
@@ -170,6 +178,14 @@ public class OcrAnalysisService {
 
         long duration = System.currentTimeMillis() - startTime;
         response.setProcessingTimeMs(duration);
+
+        Map<String, Long> timings = new LinkedHashMap<>();
+        timings.put("imageDecodeMs", decodeTime);
+        timings.put("totalBackendMs", duration);
+        response.setTimings(timings);
+
+        System.out.printf("[Backend-OCR][%s] Analysis complete in %dms (MRP: %s, NetQty: %s, FSSAI: %s)%n",
+                scanId, duration, spatialFields.getMrp().getValue(), spatialFields.getNetQuantity().getValue(), spatialFields.getFssaiNumber().getValue());
 
         // Save debug dump to scratch/latest_live_ocr_dump.json
         try {

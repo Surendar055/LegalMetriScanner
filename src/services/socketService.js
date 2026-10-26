@@ -5,9 +5,12 @@ import { io } from 'socket.io-client';
  * Handles real-time pairing between Laptop Inspector Station and Mobile Phone Scanner
  */
 
+import { getSocketUrl, getApiUrl } from '../config/api.js';
+
 class SocketService {
   constructor() {
     this.socket = null;
+    this.eventSource = null;
     this.listeners = new Map();
     this.connected = false;
     this.currentSessionId = null;
@@ -17,15 +20,55 @@ class SocketService {
   }
 
   getBackendUrl() {
-    if (import.meta.env.VITE_SOCKET_URL) {
-      return import.meta.env.VITE_SOCKET_URL;
+    return getSocketUrl();
+  }
+
+  initSse(sessionId) {
+    if (typeof EventSource === 'undefined' || !sessionId) return;
+    if (this.eventSource) {
+      try { this.eventSource.close(); } catch (e) {}
     }
-    // In browser, route through Vite proxy / same origin so SSL & proxies work effortlessly
-    if (typeof window !== 'undefined') {
-      return window.location.origin;
+
+    try {
+      const sseUrl = getApiUrl(`/api/session/${sessionId}/events`);
+      console.log('[SocketService] Subscribing to single-port SSE stream:', sseUrl);
+      this.eventSource = new EventSource(sseUrl);
+
+      this.eventSource.addEventListener('device:connected', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          console.log('[SocketService-SSE] Device Connected event received:', data);
+          this.emitInternal('device:connected', data);
+        } catch (err) {
+          console.warn('[SocketService-SSE] Parse error for device:connected:', err);
+        }
+      });
+
+      this.eventSource.addEventListener('scan:received', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          console.log('[SocketService-SSE] Scan Received event received:', data);
+          this.emitInternal('scan:received', data);
+        } catch (err) {
+          console.warn('[SocketService-SSE] Parse error for scan:received:', err);
+        }
+      });
+
+      this.eventSource.addEventListener('connection:ready', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          console.log('[SocketService-SSE] Real-time session stream connected:', data);
+          this.connected = true;
+          this.emitInternal('connection:change', { status: 'Connected', sse: true });
+        } catch (err) {}
+      });
+
+      this.eventSource.onerror = (err) => {
+        // SSE browser client will automatically retry reconnecting
+      };
+    } catch (e) {
+      console.warn('[SocketService] Notice: could not init SSE stream:', e);
     }
-    const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-    return `http://${host}:4001`;
   }
 
   init(serverUrl = this.getBackendUrl()) {
@@ -34,13 +77,14 @@ class SocketService {
     }
 
     try {
+      console.log('[SocketService] Connecting to real-time endpoint:', serverUrl);
       this.socket = io(serverUrl, {
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 50,
-        reconnectionDelay: 500,
-        reconnectionDelayMax: 3000,
-        timeout: 45000,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
       });
 
       this.socket.on('connect', () => {
@@ -109,6 +153,10 @@ class SocketService {
   initSession(sessionId) {
     this.role = 'laptop';
     this.currentSessionId = sessionId;
+
+    // Connect to single-port SSE event stream
+    this.initSse(sessionId);
+
     if (this.socket && this.socket.connected) {
       this.socket.emit('session:init', { sessionId });
     }
@@ -119,15 +167,32 @@ class SocketService {
     this.role = 'phone';
     this.currentSessionId = sessionId;
     this.deviceInfo = deviceInfo;
+
+    // 1. Single-port REST pairing (guarantees pairing on Render single-port deployments)
+    try {
+      fetch(getApiUrl(`/api/session/${sessionId}/join`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceInfo }),
+      })
+        .then((res) => {
+          if (res.ok) {
+            console.log('[SocketService] Paired via single-port REST endpoint successfully');
+            this.emitInternal('session:joined_success', { sessionId, mode: 'single-port' });
+          }
+        })
+        .catch((e) => console.warn('[SocketService] REST session join notice:', e));
+    } catch (e) {}
+
+    // 2. Also pair via Socket.IO if connected
     if (this.socket && this.socket.connected) {
       this.socket.emit('session:join', { sessionId, deviceInfo });
     } else {
-      // Re-try once connected
       const checkAndJoin = () => {
         if (this.socket && this.socket.connected) {
           this.socket.emit('session:join', { sessionId, deviceInfo });
         } else {
-          setTimeout(checkAndJoin, 300);
+          setTimeout(checkAndJoin, 500);
         }
       };
       checkAndJoin();
@@ -139,7 +204,7 @@ class SocketService {
     if (this.socket && this.socket.connected) {
       this.socket.emit('scan:submit', { sessionId, scanData });
     } else {
-      console.warn('[SocketService] Socket offline during scan submission. Queueing scan for delivery upon reconnect...');
+      console.log('[SocketService] Socket offline / using single-port mode; scan persisted and delivered via REST API');
       this.pendingScans.push({ sessionId, scanData });
     }
     // Also trigger local event
@@ -190,6 +255,12 @@ class SocketService {
   disconnect() {
     if (this.socket) {
       this.socket.disconnect();
+    }
+    if (this.eventSource) {
+      try {
+        this.eventSource.close();
+      } catch (e) {}
+      this.eventSource = null;
     }
     this.connected = false;
   }

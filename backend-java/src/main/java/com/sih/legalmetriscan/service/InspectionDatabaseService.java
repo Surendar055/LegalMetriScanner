@@ -45,6 +45,29 @@ public class InspectionDatabaseService {
             record.setId("SCAN-" + (records.size() + 1));
         }
 
+        // Ensure statutory compliance validation:
+        // An inspection must NEVER be marked "Compliant" merely because fields were not detected.
+        if (record.getStatus() == null || record.getStatus().isBlank() || "Compliant".equalsIgnoreCase(record.getStatus())) {
+            boolean hasMissing = false;
+            if (record.getDetails() != null) {
+                for (String key : List.of("mrp", "netQuantity", "manufacturer", "manufacturingDate", "customerCare")) {
+                    Object val = record.getDetails().get(key);
+                    if (val == null || "Not detected".equalsIgnoreCase(val.toString()) || val.toString().contains("Not detected")) {
+                        hasMissing = true;
+                        break;
+                    }
+                }
+            }
+            if (record.getVerdict() != null && (record.getVerdict().toLowerCase().contains("missing") || record.getVerdict().toLowerCase().contains("potential issue"))) {
+                hasMissing = true;
+            }
+            if (hasMissing) {
+                record.setStatus("Attention Required");
+            } else if (record.getStatus() == null || record.getStatus().isBlank()) {
+                record.setStatus("Compliant");
+            }
+        }
+
         records.removeIf(r -> Objects.equals(r.getId(), record.getId()));
         records.add(0, record);
 

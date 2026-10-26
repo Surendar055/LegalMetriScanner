@@ -200,6 +200,8 @@ export {
   makeField,
 };
 
+import { getApiUrl } from '../config/api.js';
+
 /**
  * Runs OCR on an image (base64 dataURL or image URL)
  * Supports progress callback for real-time UI updates
@@ -210,20 +212,34 @@ export async function runOcrOnImage(imageDataUrl, onProgress, options = {}) {
   }
 
   const startTime = Date.now();
+  const scanId = options.scanId || `SCAN-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
   // Strategy 1: Primary Backend OCR API with Sharp Preprocessing + Multi-Orientation
   try {
+    const targetUrl = getApiUrl('/api/ocr/analyze');
+    console.log(`[ScanFlow][${scanId}] Initiating Backend OCR request -> ${targetUrl} (Payload: ~${Math.round(imageDataUrl.length / 1024)} KB)`);
+
     onProgress?.({ stage: 'connecting', message: 'Connecting to multi-variant OCR engine...', progress: 15 });
-    
-    const res = await fetch('/api/ocr/analyze', {
+
+    // Set 15-second timeout so requests never hang indefinitely
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    const res = await fetch(targetUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
       body: JSON.stringify({
+        scanId,
         image: imageDataUrl,
         originalImage: options.originalImage || null,
         clientQualityDebug: options.clientQualityDebug || null,
       }),
     });
+    clearTimeout(timeoutId);
+
+    const uploadDurationMs = Date.now() - startTime;
+    console.log(`[ScanFlow][${scanId}] Backend OCR responded in ${uploadDurationMs}ms (HTTP ${res.status})`);
 
     if (res.ok) {
       onProgress?.({ stage: 'processing', message: 'Analyzing label orientation & text...', progress: 75 });
@@ -239,7 +255,7 @@ export async function runOcrOnImage(imageDataUrl, onProgress, options = {}) {
       const getVal = (f) => (f && typeof f === 'object' && 'value' in f ? f.value : (f || 'Not detected'));
       const extractionSource = data.spatialFields ? 'SPATIAL' : 'LEGACY FALLBACK';
 
-      console.log(`[UNIFIED EXTRACTION]
+      console.log(`[ScanFlow][${scanId}] [UNIFIED EXTRACTION]
 Source: ${extractionSource}
 MRP: ${getVal(extractedFields.mrp)}
 Net Quantity: ${getVal(extractedFields.netQuantity)}
@@ -251,11 +267,13 @@ Manufacturing Date: ${getVal(extractedFields.manufacturingDate)}
 Best Before: ${getVal(extractedFields.bestBefore)}`);
 
       return {
+        scanId,
         rawText: data.rawText || '',
         ocrConfidence: data.confidence || 0,
         selectedVariant: data.selectedVariant || data.ocrVariant || 'Adaptive Multi-Orientation Preprocessing',
         ocrVariant: data.ocrVariant || data.selectedVariant || 'Adaptive Multi-Orientation Preprocessing',
         processingTimeMs: data.processingTimeMs || (Date.now() - startTime),
+        uploadDurationMs,
         variantsTested: data.variantsTested || 1,
         psmMode: data.psmMode || '3 (Automatic)',
         words: data.words || data.ocr?.words || [],
@@ -268,9 +286,20 @@ Best Before: ${getVal(extractedFields.bestBefore)}`);
         imageQualityDebug: data.imageQualityDebug || options.clientQualityDebug || null,
         extractedFields,
       };
+    } else {
+      console.warn(`[ScanFlow][${scanId}] Backend OCR responded with non-200 status: ${res.status}`);
+      throw new Error(`Server returned status ${res.status}. Please retry the scan.`);
     }
   } catch (backendErr) {
-    console.warn('[OCR Service] Backend OCR route unavailable or failed, falling back to in-browser Tesseract:', backendErr);
+    if (backendErr.name === 'AbortError' || (typeof controller !== 'undefined' && controller.signal.aborted)) {
+      console.warn(`[ScanFlow][${scanId}] Backend OCR timed out after 15s. Aborting immediately to prevent duplicate expensive OCR.`);
+      throw new Error('Inspection scan request timed out after 15 seconds. Please tap retry with steady camera and good lighting.');
+    }
+    // If user cancelled or explicit server error, do not silently run 2-minute duplicate OCR
+    if (backendErr.message && (backendErr.message.includes('status') || backendErr.message.includes('timed out'))) {
+      throw backendErr;
+    }
+    console.warn(`[ScanFlow][${scanId}] Backend OCR route unavailable (${backendErr.message}), falling back to lightweight offline OCR:`, backendErr);
   }
 
   // Strategy 2: In-browser Tesseract.js Worker fallback with client-side canvas rotation

@@ -4,6 +4,7 @@ import { INITIAL_INSPECTIONS, CONNECTED_DEVICE_DEFAULT, MOCK_SCAN_TEMPLATES } fr
 import socketService from '../services/socketService';
 import { formatInspectionFields } from '../utils/inspectionFormatter';
 import { formatToShortDate } from '../utils/reportGenerator';
+import { getApiUrl, getResolvedBackendUrl } from '../config/api.js';
 
 const InspectionContext = createContext(null);
 
@@ -38,7 +39,8 @@ export const InspectionProvider = ({ children }) => {
 
   // Fetch initial inspections from backend on mount if available
   useEffect(() => {
-    fetch('/api/inspections')
+    const targetUrl = getApiUrl('/api/inspections');
+    fetch(targetUrl)
       .then((res) => (res.ok ? res.json() : null))
       .then((backendItems) => {
         if (Array.isArray(backendItems) && backendItems.length > 0) {
@@ -53,7 +55,9 @@ export const InspectionProvider = ({ children }) => {
           });
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.log('[InspectionContext] Backend sync fallback to local inventory:', err.message);
+      });
   }, []);
   const [connectedDevice, setConnectedDevice] = useState(CONNECTED_DEVICE_DEFAULT);
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -91,40 +95,52 @@ export const InspectionProvider = ({ children }) => {
         ? sessionStorage.getItem('lms_active_session_id')
         : null;
 
+      const isPublicDeployment = typeof window !== 'undefined' &&
+        !window.location.hostname.includes('localhost') &&
+        !window.location.hostname.includes('127.0.0.1') &&
+        !/^192\.168\./.test(window.location.hostname) &&
+        !/^10\./.test(window.location.hostname);
+
       let newSessionId = existingSessionId || ('LMS-' + Math.random().toString(36).substring(2, 8).toUpperCase());
       let networkIp = host;
-      let mobileUrl = `https://${host}:${vitePort}/?sessionId=${newSessionId}&mode=mobile`;
+      let mobileUrl = isPublicDeployment
+        ? `${window.location.origin}/?sessionId=${newSessionId}&mode=mobile`
+        : `https://${host}:${vitePort}/?sessionId=${newSessionId}&mode=mobile`;
 
       if (!existingSessionId || forceNew) {
         try {
-          const res = await fetch('/api/session/new');
+          const res = await fetch(getApiUrl('/api/session/new'));
           if (res.ok) {
             const data = await res.json();
             newSessionId = data.sessionId;
-            if (data.localIp && data.localIp !== 'localhost') {
+            if (isPublicDeployment) {
+              mobileUrl = `${window.location.origin}/?sessionId=${newSessionId}&mode=mobile`;
+            } else if (data.localIp && data.localIp !== 'localhost') {
               networkIp = data.localIp;
+              mobileUrl = `https://${networkIp}:${vitePort}/?sessionId=${newSessionId}&mode=mobile`;
             }
-            mobileUrl = `https://${networkIp}:${vitePort}/?sessionId=${newSessionId}&mode=mobile`;
           }
         } catch (e) {
           console.warn('[InspectionContext] Could not fetch /api/session/new via proxy, using host:', host, e);
         }
       } else {
         try {
-          const res = await fetch('/api/network-info');
+          const res = await fetch(getApiUrl('/api/network-info'));
           if (res.ok) {
             const data = await res.json();
             if (data.localIp && data.localIp !== 'localhost') {
               networkIp = data.localIp;
+              if (!isPublicDeployment) {
+                mobileUrl = `https://${networkIp}:${vitePort}/?sessionId=${newSessionId}&mode=mobile`;
+              }
             }
-            mobileUrl = `https://${networkIp}:${vitePort}/?sessionId=${newSessionId}&mode=mobile`;
           }
         } catch (e) {
           console.warn('[InspectionContext] Network info fetch fallback:', e);
         }
       }
 
-      if ((networkIp === 'localhost' || networkIp === '127.0.0.1') && host !== 'localhost') {
+      if ((networkIp === 'localhost' || networkIp === '127.0.0.1') && host !== 'localhost' && !isPublicDeployment) {
         networkIp = host;
         mobileUrl = `https://${networkIp}:${vitePort}/?sessionId=${newSessionId}&mode=mobile`;
       }
@@ -189,7 +205,7 @@ export const InspectionProvider = ({ children }) => {
 
     // Also persist to backend Java database
     try {
-      fetch('/api/inspections', {
+      fetch(getApiUrl('/api/inspections'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sanitizedScan),
@@ -366,6 +382,7 @@ export const InspectionProvider = ({ children }) => {
       barcode: scanPayload.barcode || 'N/A',
       category: scanPayload.category || 'Packaged Commodity',
       device: connectedDevice.name,
+      sessionId: activeSessionId,
       status: formatted.allDetected ? 'Compliant' : 'Attention Required',
       verdict: formatted.verdict,
       mandatoryFields: formatted.fields,

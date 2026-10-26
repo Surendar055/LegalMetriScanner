@@ -19,6 +19,7 @@ public class InspectionRecord {
     private String status;
     private String verdict;
     private Map<String, Object> details;
+    private String sessionId;
     private String evidenceImageUrl;
     private String ocrRawText;
     private int ocrConfidence;
@@ -28,6 +29,9 @@ public class InspectionRecord {
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
+
+    public String getSessionId() { return sessionId; }
+    public void setSessionId(String sessionId) { this.sessionId = sessionId; }
 
     public String getTimestamp() { return timestamp; }
     public void setTimestamp(String timestamp) { this.timestamp = timestamp; }

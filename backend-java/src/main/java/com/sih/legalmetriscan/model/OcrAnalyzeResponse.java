@@ -31,9 +31,17 @@ public class OcrAnalyzeResponse {
     private SpatialExtractionResult spatialFields = new SpatialExtractionResult();
     private Map<String, Object> spatialDebug = new LinkedHashMap<>();
     private Map<String, Object> extractedFields = new LinkedHashMap<>();
+    private String scanId;
+    private Map<String, Long> timings = new LinkedHashMap<>();
     private int detectedCount = 0;
 
     public OcrAnalyzeResponse() {}
+
+    public String getScanId() { return scanId; }
+    public void setScanId(String scanId) { this.scanId = scanId; }
+
+    public Map<String, Long> getTimings() { return timings; }
+    public void setTimings(Map<String, Long> timings) { this.timings = timings; }
 
     public Map<String, Integer> getOrientationScores() { return orientationScores; }
     public void setOrientationScores(Map<String, Integer> orientationScores) { this.orientationScores = orientationScores; }

@@ -11,14 +11,21 @@ services:
         value: 10000
       - key: SOCKET_PORT
         value: 4001
+      - key: PUBLIC_FRONTEND_URL
+        value: https://legalmetriscan-frontend.onrender.com
 
-  # 2. React Vite Frontend Static Site on Render (if hosted together)
+  # 2. React Vite Frontend Static Site on Render
   - type: web
     name: legalmetriscan-frontend
     env: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
     plan: free
+    envVars:
+      - key: VITE_BACKEND_URL
+        value: https://legalmetriscan-backend-java.onrender.com
+      - key: VITE_SOCKET_URL
+        value: https://legalmetriscan-backend-java.onrender.com
     routes:
       - type: rewrite
         source: /*
